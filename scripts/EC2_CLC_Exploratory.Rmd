@@ -10,7 +10,7 @@ From Matt K
 Linked below are two GIS datasets to use in the regression analysis. I’d like to try vertical retreat rate vs. soil parameters, and threshold elevations vs. soil parameters.
  
 The first dataset is vertical forest retreat rates for every point along the mid-Atlantic. 
-####Just make sure to use the one labeled “vertical forest retreat” rather than “lateral forest retreat.”
+#### Just make sure to use the one labeled “vertical forest retreat” rather than “lateral forest retreat.”
 The regression analysis should be straight forward since both datasets are point based. https://portal.edirepository.org/nis/mapbrowse?packageid=knb-lter-vcr.399.1
  
 The second dataset is the threshold elevation defining the boundary between forest and marsh, aggregated by watershed. This is only for Maryland and Virginia, so won’t work for EXCHANGE sites in DE or NJ.
@@ -31,14 +31,14 @@ library(rgdal)
 getwd()
 ```
 
-#Vertical Retreat Rates 
-##Load in Data
+# Vertical Retreat Rates 
+## Load in Data
 
-####vertical forest retreat rates from: 
+#### vertical forest retreat rates from: 
 
 Chen, Y. and M.L. Kirwan. 2023. vertical and vertical forest retreat rate in the mid-Atlantic sea-level rise hotspot ver 1. Environmental Data Initiative. https://doi.org/10.6073/pasta/4edf9b0d9d6660d354710748b2cf56f0 (Accessed 2024-03-31).
 
-####EC 1 data from:
+#### EC 1 data from:
 
 Pennington S C ; Alford S ; Back M P ; Bailey V ; Baldwin A ; Bolinger J ; Bowe M ; Boyanov M I ; Cianci-Gaskill J A ; Conroy N A ; Cooper M J ; Day D ; Demeo A ; Derby K ; Detweiler D ; Devres-Zimmerman S ; Eberhard E ; Gedan K ; Haaf L ; Homolka K K ; Johnson E ; Kemner K M ; Khan A ; Kirwan M ; Kittaka P ; Koontz E ; Langley A ; Leff R ; Lerberg S ; Lewis A M ; Malkin S ; Marcarelli A M ; McMurray S E ; Messerschmidt T ; Michael T C ; Michael H A ; Minor E C ; Moye B ; Mozdzer T J ; Neubauer S ; Norris C G ; O'Loughlin E J ; Otenburg O ; Pain A ; Patel K F ; Philben M ; Phillips E ; Pratt D ; Regier P ; Jr J A R ; Sage L ; Sandborn D ; Smith S ; Smith A ; Soin-Voshell S ; Song B ; Sprague-Getsy A ; Laurent K S ; Staver L ; Stearns A ; Stetten L ; Swerida R ; Theuerkauf E J ; Tully K ; Vargas R ; Ward N D ; Watson E ; Weilminster C ; Myers-Pigg A N (2023): EXCHANGE Campaign 1: A Community-Driven Baseline Characterization of Soils, Sediments, and Water Across Coastal Gradients. COMPASS-FME, ESS-DIVE repository. Dataset. doi:10.15485/1960313 accessed via https://data.ess-dive.lbl.gov/datasets/doi:10.15485/1960313 on 2024-03-31
 
@@ -257,9 +257,11 @@ map <- ggplot() +
 
 cowplot::save_plot("./graphs/map.jpeg", map, dpi=300)
 
+map
+
 ```
 
-#Threshold Elevations
+## Threshold Elevations
 
 The second dataset is the threshold elevation defining the boundary between forest and marsh, aggregated by watershed. This is only for Maryland and Virginia, so won’t work for EXCHANGE sites in DE or NJ.
 https://portal.edirepository.org/nis/mapbrowse?packageid=knb-lter-vcr.343.2
@@ -309,7 +311,7 @@ clc_all_data_ws <- points_in_watershed_no_geometry %>%
 ```
 
 # Analysis time! 
-Elevation 
+## Elevation 
 
 ```{r correlations elevation, echo=FALSE}
 
@@ -366,5 +368,5 @@ carbon_corrplot <- clc_all_data_ws  %>%
 
 carbon_corrplot
 
-cowplot::save_plot("./graphs/carbon_correlation_plot.jpeg", carbon_corrplot, dpi=300)
+cowplot::save_plot("./graphs/carbon_correlation_plot_threshold.jpeg", carbon_corrplot, dpi=300)
 ```
