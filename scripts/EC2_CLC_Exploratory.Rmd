@@ -42,7 +42,7 @@ Chen, Y. and M.L. Kirwan. 2023. vertical and vertical forest retreat rate in the
 
 Pennington S C ; Alford S ; Back M P ; Bailey V ; Baldwin A ; Bolinger J ; Bowe M ; Boyanov M I ; Cianci-Gaskill J A ; Conroy N A ; Cooper M J ; Day D ; Demeo A ; Derby K ; Detweiler D ; Devres-Zimmerman S ; Eberhard E ; Gedan K ; Haaf L ; Homolka K K ; Johnson E ; Kemner K M ; Khan A ; Kirwan M ; Kittaka P ; Koontz E ; Langley A ; Leff R ; Lerberg S ; Lewis A M ; Malkin S ; Marcarelli A M ; McMurray S E ; Messerschmidt T ; Michael T C ; Michael H A ; Minor E C ; Moye B ; Mozdzer T J ; Neubauer S ; Norris C G ; O'Loughlin E J ; Otenburg O ; Pain A ; Patel K F ; Philben M ; Phillips E ; Pratt D ; Regier P ; Jr J A R ; Sage L ; Sandborn D ; Smith S ; Smith A ; Soin-Voshell S ; Song B ; Sprague-Getsy A ; Laurent K S ; Staver L ; Stearns A ; Stetten L ; Swerida R ; Theuerkauf E J ; Tully K ; Vargas R ; Ward N D ; Watson E ; Weilminster C ; Myers-Pigg A N (2023): EXCHANGE Campaign 1: A Community-Driven Baseline Characterization of Soils, Sediments, and Water Across Coastal Gradients. COMPASS-FME, ESS-DIVE repository. Dataset. doi:10.15485/1960313 accessed via https://data.ess-dive.lbl.gov/datasets/doi:10.15485/1960313 on 2024-03-31
 
-```{r data loading, warning=FALSE}
+```{r data loading, warning=FALSE, echo=FALSE}
 #vertical Forest Retreat Rate
 vfrr_shp <- st_read("./data_do_not_commit/knb-lter-vcr.399.1/Vertical_forest_retreat_rate/Vertical_forest_retreat_rate.shp")
 
@@ -60,7 +60,7 @@ ec1_tc <- read_csv("./data_do_not_commit/EC1 Package V1/ec1_soil_v1/ec1_soil_tc_
 ec1_tn <- read_csv("./data_do_not_commit/EC1 Package V1/ec1_soil_v1/ec1_soil_tn_L2.csv")
 
 ```
-```{r cleaning data, warnings=FALSE}
+```{r cleaning data, warnings=FALSE, echo=FALSE}
 ec1_meta_curated <- ec1_meta %>%
   full_join(ec1_meta_kit, by="kit_id") %>%
   filter(region == "Mid-Atlantic") %>%
@@ -80,7 +80,7 @@ ec1_soil_all <- ec1_bd %>%
 
 Projected Coordinate Reference System (CRS) "WGS 84 / UTM zone 18N" = EPSG code for this CRS is 32618.
 
-```{r data extracting}
+```{r data extracting, echo=FALSE}
 
 coordinates <- ec1_meta_curated %>%
   dplyr::select(kit_id, transect_location, longitude, latitude) %>% 
@@ -111,7 +111,7 @@ extracted_vfrr_df <- as.data.frame(extracted_vfrr_no_geometry) %>%
 
 ```
 
-```{r data merging}
+```{r data merging, echo=FALSE}
 
 clc_all_data <- extracted_vfrr_df %>%
   inner_join(ec1_soil_all, by= c("kit_id","transect_location"))
@@ -120,8 +120,7 @@ clc_all_data <- extracted_vfrr_df %>%
 # Analysis time! 
 vertical retreat rate   (m year−1)
 
-```{r correlations}
-
+```{r correlations, echo=FALSE}
 clc_data_num <- clc_all_data %>% 
   dplyr::select(where(is.numeric)) 
 
@@ -130,7 +129,7 @@ pearsons <- clc_data_num %>%
   correlate(use = "pairwise.complete.obs", method = "pearson") %>% 
   focus(V_RetreatR)
 
-View(pearsons)
+print(pearsons)
 
 lm_clc <- lm(V_RetreatR ~ ., data= clc_data_num)
 summary(lm_clc)
@@ -140,12 +139,12 @@ spearmans <- clc_data_num %>%
   correlate(use = "pairwise.complete.obs", method = "spearman") %>% 
   focus(V_RetreatR)
 
-View(spearmans)
+print(spearmans)
 
 ```
 Looking maybe promising? Need significance values though...
 
-```{r sig or not}
+```{r sig or not, echo=FALSE}
 
 results <- sapply(clc_data_num[-1], function(x) {
   test <- cor.test(clc_data_num$V_RetreatR, x)
@@ -165,7 +164,7 @@ print(pearsons_stats)
 ```
 nope...dang
 
-```{r plotting sign values}
+```{r plotting sign values, echo=FALSE}
 
 clc_all_data  %>%
   mutate_if(is.character, funs(ifelse(is.na(.), "Unknown", .))) %>%
@@ -188,8 +187,8 @@ cowplot::save_plot("./graphs/carbon_correlation_plot.jpeg", carbon_corrplot, dpi
 
 ```
 
-Hmm, wondering if I have enough data to try random forest? Probably not going to work...
-```{r random forest trying out}
+Hmm, wondering if I have enough data to try random forest? Probably not going to work, messing around with it anyway...
+```{r random forest trying out, include =FALSE}
 #Need to get rid of NA values first.
 #filling these with mean of the column, for now. 
 
@@ -206,8 +205,8 @@ clc_rf <- ranger(V_RetreatR ~ ., data= clc_4rf, importance = 'permutation')
 print(clc_rf)
 
 ```
-
-```{r more random forest testing}
+messing around some more...
+```{r more random forest testing, include = FALSE}
 
 # Get variable importance
 importance <- clc_rf$variable.importance
@@ -228,7 +227,7 @@ ggplot(importance_df, aes(x = reorder(Variable, Importance), y = Importance)) +
 
 # Make a map
 
-```{r mapping}
+```{r mapping, echo=FALSE}
 pal <- wesanderson::wes_palette("Zissou1", 100, type = "continuous")
 
 usa <- maps::map('usa', fill = TRUE, plot = FALSE)
@@ -266,7 +265,7 @@ The second dataset is the threshold elevation defining the boundary between fore
 https://portal.edirepository.org/nis/mapbrowse?packageid=knb-lter-vcr.343.2
 File #1 contains the watershed names and threshold elevations. File #3 contains the watershed boundaries. You’ll need to identify the watershed that the EXCHANGE site is in, then find the threshold elevation for that watershed before running the regression. Its simpler than it sounds.
 
-```{r load in watersheds data}
+```{r load in watersheds data, echo=FALSE}
 
 elevation_df <- read_csv("./data_do_not_commit/knb-lter-vcr.343.2/CB_landuse.csv", skip = 23)
 
@@ -275,7 +274,7 @@ HUC_shp <- st_read("./data_do_not_commit/knb-lter-vcr.343.2/CB_HUC10/CB_HUC10.sh
 
 
 Projected CRS: NAD83 / UTM zone 18N = crs epsg 26918 aka should be the same as  st_crs(HUC_shp)
-```{r data extracting in other crs}
+```{r data extracting in other crs, echo=FALSE}
 
 ec1_meta_curated_2 <- ec1_meta %>%
   full_join(ec1_meta_kit, by="kit_id") %>%
@@ -301,7 +300,7 @@ points_in_watershed <- st_join(coordinates_ws_sf_transformed, HUC_shp, join = st
 
 ```
 
-```{r data merging elevation}
+```{r data merging elevation, echo=FALSE}
 
 points_in_watershed_no_geometry <- st_set_geometry(points_in_watershed, NULL)
 
@@ -312,7 +311,7 @@ clc_all_data_ws <- points_in_watershed_no_geometry %>%
 # Analysis time! 
 Elevation 
 
-```{r correlations elevation}
+```{r correlations elevation, echo=FALSE}
 
 
 clc_data_num_2 <- clc_all_data_ws %>% 
@@ -323,7 +322,7 @@ pearsons1 <- clc_data_num_2%>%
   correlate(use = "pairwise.complete.obs", method = "pearson") %>% 
   focus(Elevation)
 
-View(pearsons1)
+print(pearsons1)
 
 lm_clc1 <- lm(Elevation ~ ., data= clc_data_num_2)
 summary(lm_clc1)
@@ -333,11 +332,11 @@ spearmans1 <- clc_data_num_2 %>%
   correlate(use = "pairwise.complete.obs", method = "spearman") %>% 
   focus(Elevation)
 
-View(spearmans1)
+print(spearmans1)
 
 ```
 
-```{r sig or not Take 2}
+```{r sig or not Take 2, echo=FALSE}
 
 results2 <- sapply(clc_data_num_2[-1], function(x) {
   test <- cor.test(clc_data_num_2$Elevation, x)
@@ -356,7 +355,7 @@ pearsons_stats2 <- pearsons_stats_a2 %>%
 print(pearsons_stats2)
 ```
 
-```{r plotting elevation}
+```{r plotting elevation, echo=FALSE}
 carbon_corrplot <- clc_all_data_ws  %>%
   mutate_if(is.character, funs(ifelse(is.na(.), "Unknown", .))) %>%
   ggplot(aes(x=carbon_weight_perc, y=Elevation)) +
