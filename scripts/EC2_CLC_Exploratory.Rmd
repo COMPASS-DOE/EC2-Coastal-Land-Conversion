@@ -357,6 +357,22 @@ pearsons_stats2 <- pearsons_stats_a2 %>%
 print(pearsons_stats2)
 ```
 
+
+```{r plotting elevation, echo=FALSE}
+gwc_corrplot <- clc_all_data_ws  %>%
+  mutate_if(is.character, funs(ifelse(is.na(.), "Unknown", .))) %>%
+  ggplot(aes(x=moisturecontent_perc_drywtbasis, y=Elevation)) +
+  geom_point(color = "#749B3A") +
+  geom_smooth(method = "lm", se = TRUE,  color = "black")+
+  theme_classic()+
+  labs(x ="Moisture Content (% dry weight)", y="Threshold Elevation (m)")
+
+gwc_corrplot
+
+cowplot::save_plot("./graphs/gwc_correlation_plot_threshold.jpeg", gwc_corrplot, dpi=300)
+```
+
+
 ```{r plotting elevation, echo=FALSE}
 carbon_corrplot <- clc_all_data_ws  %>%
   mutate_if(is.character, funs(ifelse(is.na(.), "Unknown", .))) %>%
