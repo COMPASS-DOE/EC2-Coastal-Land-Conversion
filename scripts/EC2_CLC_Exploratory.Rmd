@@ -26,7 +26,8 @@ library(sf)
 library(raster)
 library(corrr)
 library(ranger)
-library(rgdal)
+library(tidymodels)
+#library(rgdal)
 
 getwd()
 ```
@@ -44,20 +45,25 @@ Pennington S C ; Alford S ; Back M P ; Bailey V ; Baldwin A ; Bolinger J ; Bowe 
 
 ```{r data loading, warning=FALSE, echo=FALSE}
 #vertical Forest Retreat Rate
-vfrr_shp <- st_read("./data_do_not_commit/knb-lter-vcr.399.1/Vertical_forest_retreat_rate/Vertical_forest_retreat_rate.shp")
+vfrr_shp <- st_read("../data_do_not_commit/knb-lter-vcr.399.1/Vertical_forest_retreat_rate/Vertical_forest_retreat_rate.shp")
 
 #EC1 Metadata
-ec1_meta <-read_csv("./data_do_not_commit/EC1 Package V1/ec1_metadata_v1/ec1_metadata_collectionlevel.csv")
+ec1_meta <-read_csv("../data_do_not_commit/EC1 Package V1/ec1_metadata_v1/ec1_metadata_collectionlevel.csv")
 
-ec1_meta_kit <-read_csv("./data_do_not_commit/EC1 Package V1/ec1_metadata_v1/ec1_metadata_kitlevel.csv")
+ec1_meta_kit <-read_csv("../data_do_not_commit/EC1 Package V1/ec1_metadata_v1/ec1_metadata_kitlevel.csv")
 
 #Soil Data
-ec1_bd <- read_csv("./data_do_not_commit/EC1 Package V1/ec1_soil_v1/ec1_soil_bulk_density_L2.csv")
-ec1_cond <- read_csv("./data_do_not_commit/EC1 Package V1/ec1_soil_v1/ec1_soil_cond_L2.csv")
-ec1_gwc <- read_csv("./data_do_not_commit/EC1 Package V1/ec1_soil_v1/ec1_soil_gwc_L2.csv")
-ec1_ph <- read_csv("./data_do_not_commit/EC1 Package V1/ec1_soil_v1/ec1_soil_ph_L2.csv")
-ec1_tc <- read_csv("./data_do_not_commit/EC1 Package V1/ec1_soil_v1/ec1_soil_tc_L2.csv")
-ec1_tn <- read_csv("./data_do_not_commit/EC1 Package V1/ec1_soil_v1/ec1_soil_tn_L2.csv")
+ec1_bd <- read_csv("../data_do_not_commit/EC1 Package V1/ec1_soil_v1/ec1_soil_bulk_density_L2.csv")
+ec1_cond <- read_csv("../data_do_not_commit/EC1 Package V1/ec1_soil_v1/ec1_soil_cond_L2.csv")
+ec1_gwc <- read_csv("../data_do_not_commit/EC1 Package V1/ec1_soil_v1/ec1_soil_gwc_L2.csv")
+ec1_ph <- read_csv("../data_do_not_commit/EC1 Package V1/ec1_soil_v1/ec1_soil_ph_L2.csv")
+ec1_tc <- read_csv("../data_do_not_commit/EC1 Package V1/ec1_soil_v1/ec1_soil_tc_L2.csv")
+ec1_tn <- read_csv("../data_do_not_commit/EC1 Package V1/ec1_soil_v1/ec1_soil_tn_L2.csv")
+
+#adjacent surface water data:
+ec1_water_sal <- read_csv("../data_do_not_commit/EC1 Package V1/ec1_water_v1/ec1_water_salinity_L2.csv") %>%
+  rename(surface_water_sal_psu = sal_psu) %>%
+  dplyr::select(kit_id, surface_water_sal_psu)
 
 ```
 ```{r cleaning data, warnings=FALSE, echo=FALSE}
@@ -65,7 +71,8 @@ ec1_meta_curated <- ec1_meta %>%
   full_join(ec1_meta_kit, by="kit_id") %>%
   filter(region == "Mid-Atlantic") %>%
   #can't do this analysis on the wetland, sediment or water data
-  filter(transect_location %in% c("transition")) %>%
+  #Want to look for the variables for the upland, though
+  filter(transect_location %in% c("upland")) %>%
   filter(!is.na(latitude)) %>%
   dplyr::select(kit_id, region, transect_location, site_name, latitude, longitude, elevation_m, soil_type, soil_horizon)
 
@@ -82,6 +89,7 @@ Projected Coordinate Reference System (CRS) "WGS 84 / UTM zone 18N" = EPSG code 
 
 ```{r data extracting, echo=FALSE}
 
+# Want to focus on the transition sites for lat and long: 
 coordinates <- ec1_meta_curated %>%
   dplyr::select(kit_id, transect_location, longitude, latitude) %>% 
    filter(!(kit_id == "K055" & transect_location == "upland"),
@@ -114,7 +122,8 @@ extracted_vfrr_df <- as.data.frame(extracted_vfrr_no_geometry) %>%
 ```{r data merging, echo=FALSE}
 
 clc_all_data <- extracted_vfrr_df %>%
-  inner_join(ec1_soil_all, by= c("kit_id","transect_location"))
+  inner_join(ec1_soil_all, by= c("kit_id","transect_location")) %>%
+  left_join(ec1_water_sal, by = "kit_id")
 ```
 
 # Analysis time! 
@@ -162,28 +171,22 @@ pearsons_stats <- pearsons_stats_a %>%
 
 print(pearsons_stats)
 ```
-nope...dang
 
+nope, nothing...dang
+
+## Plotting 
 ```{r plotting sign values, echo=FALSE}
 
-clc_all_data  %>%
+gwc_corrplot <- clc_all_data  %>%
   mutate_if(is.character, funs(ifelse(is.na(.), "Unknown", .))) %>%
   ggplot(aes(x=moisturecontent_perc_drywtbasis, y=V_RetreatR, color= soil_horizon)) +
   geom_point() +
   geom_smooth(method = "lm", se = TRUE, color = "black")+
   theme_classic()
 
-carbon_corrplot <- clc_all_data  %>%
-  mutate_if(is.character, funs(ifelse(is.na(.), "Unknown", .))) %>%
-  ggplot(aes(x=carbon_weight_perc, y=V_RetreatR)) +
-  geom_point(color = "#749B3A") +
-  geom_smooth(method = "lm", se = TRUE,  color = "black")+
-  theme_classic()+
-  labs(x ="Carbon Weight %", y="vertical Retreat Rate (m/year)")
+gwc_corrplot
 
-carbon_corrplot
-
-cowplot::save_plot("./graphs/carbon_correlation_plot.jpeg", carbon_corrplot, dpi=300)
+cowplot::save_plot("../graphs/gwc_correlation_plot.jpeg", gwc_corrplot, dpi=300)
 
 ```
 
@@ -193,7 +196,7 @@ Hmm, wondering if I have enough data to try random forest? Probably not going to
 #filling these with mean of the column, for now. 
 
 clc_4rf <-clc_all_data %>% 
-  dplyr::select(-site_name, - kit_id, -latitude, -longitude, -region, -campaign, -transect_location, -specific_conductance_us_cm, -ph) %>%
+  dplyr::select(-site_name, - kit_id, -latitude, -longitude, -region, -campaign, -transect_location, -carbon_weight_perc, -nitrogen_weight_perc, -ph) %>%
   mutate_if(is.character, funs(ifelse(is.na(.), "Unknown", .))) %>%
   mutate_if(is.numeric, function(x) ifelse(is.na(x), mean(x, na.rm = TRUE), x)
   )
@@ -218,11 +221,17 @@ importance_df <- data.frame(Variable = names(importance), Importance = importanc
 importance_df <- importance_df[order(importance_df$Importance, decreasing = TRUE), ]
 
 # Plot
-ggplot(importance_df, aes(x = reorder(Variable, Importance), y = Importance)) +
-  geom_bar(stat = "identity") +
+VI <- importance_df %>%
+  ggplot() +
+  geom_bar(aes(x = reorder(Variable, Importance), y = Importance), stat = "identity") +
   coord_flip() +
-  labs(x = "Variable", y = "Importance", title = "Variable Importance")
+  labs(x = "Variable", y = "Importance", title = "Variable Importance") +
+  theme_bw()
 
+```
+
+```{r print rf}
+VI
 ```
 
 # Make a map
@@ -255,7 +264,7 @@ map <- ggplot() +
         panel.grid.minor = element_blank()) +
    labs(color ="vertical \nretreat rate \n(mm/year)", x =" ", y=" ")
 
-cowplot::save_plot("./graphs/map.jpeg", map, dpi=300)
+cowplot::save_plot("../graphs/map_V2.jpeg", map, dpi=300)
 
 map
 
@@ -269,9 +278,9 @@ File #1 contains the watershed names and threshold elevations. File #3 contains 
 
 ```{r load in watersheds data, echo=FALSE}
 
-elevation_df <- read_csv("./data_do_not_commit/knb-lter-vcr.343.2/CB_landuse.csv", skip = 23)
+elevation_df <- read_csv("../data_do_not_commit/knb-lter-vcr.343.2/CB_landuse.csv", skip = 23)
 
-HUC_shp <- st_read("./data_do_not_commit/knb-lter-vcr.343.2/CB_HUC10/CB_HUC10.shp")
+HUC_shp <- st_read("../data_do_not_commit/knb-lter-vcr.343.2/CB_HUC10/CB_HUC10.shp")
 ```
 
 
@@ -282,7 +291,7 @@ ec1_meta_curated_2 <- ec1_meta %>%
   full_join(ec1_meta_kit, by="kit_id") %>%
   filter(region == "Mid-Atlantic") %>%
   #can't do this analysis on the wetland, sediment or water data
-  filter(transect_location %in% c("transition")) %>%
+  filter(transect_location %in% c("upland")) %>%
   filter(!is.na(latitude)) %>%
   dplyr::select(kit_id, region, transect_location, site_name, latitude, longitude, elevation_m, soil_type, soil_horizon)
 
@@ -307,7 +316,8 @@ points_in_watershed <- st_join(coordinates_ws_sf_transformed, HUC_shp, join = st
 points_in_watershed_no_geometry <- st_set_geometry(points_in_watershed, NULL)
 
 clc_all_data_ws <- points_in_watershed_no_geometry %>%
-  inner_join(ec1_soil_all, by= c("kit_id", "transect_location"))
+  inner_join(ec1_soil_all, by= c("kit_id", "transect_location")) %>%
+  left_join(ec1_water_sal, by = "kit_id")
 ```
 
 # Analysis time! 
@@ -370,24 +380,117 @@ gwc_corrplot <- clc_all_data_ws  %>%
               axis.title.x=element_text(size=14, color="black"),
               axis.title.y=element_text(size=14),
               axis.text.x=element_text(size=14, color="black"))+
-  labs(x ="Moisture Content (% dry weight)", y="Threshold Elevation (m)")
+  labs(x ="Moisture Content in upland soil (% dry weight)", y="Threshold Elevation (m)")
 
 gwc_corrplot
 
-cowplot::save_plot("./graphs/gwc_correlation_plot_threshold.jpeg", gwc_corrplot, dpi=300)
+cowplot::save_plot("../graphs/gwc_correlation_plot_threshold_uplands.jpeg", gwc_corrplot, dpi=300)
 ```
 
 
-```{r plotting elevation, echo=FALSE}
-carbon_corrplot <- clc_all_data_ws  %>%
+```{r plotting sal, echo=FALSE}
+sal_corrplot <- clc_all_data_ws  %>%
   mutate_if(is.character, funs(ifelse(is.na(.), "Unknown", .))) %>%
-  ggplot(aes(x=carbon_weight_perc, y=Elevation)) +
+  ggplot(aes(x=surface_water_sal_psu, y=Elevation)) +
   geom_point(color = "#749B3A") +
   geom_smooth(method = "lm", se = TRUE,  color = "black")+
   theme_classic()+
-  labs(x ="Carbon Weight %", y="Threshold Elevation (m)")
+  labs(x ="Adjacent Surface Water Salinity (PSU)", y="Threshold Elevation (m)")
 
-carbon_corrplot
+sal_corrplot
 
-cowplot::save_plot("./graphs/carbon_correlation_plot_threshold.jpeg", carbon_corrplot, dpi=300)
+cowplot::save_plot("../graphs/surface_sal_plot_threshold_upland.jpeg", sal_corrplot, dpi=300)
+```
+
+Hmm, wondering if I have enough data to try random forest? Probably not going to work, messing around with it anyway...
+```{r random forest trying out, include =FALSE}
+#Need to get rid of NA values first.
+#filling these with mean of the column, for now. 
+
+clc_4rf_el <-clc_all_data_ws %>% 
+  dplyr::select(-site_name, -name, - kit_id, -latitude, -longitude, -region, -campaign, -transect_location, -carbon_weight_perc, -nitrogen_weight_perc, -ph) %>%
+  mutate_if(is.character, funs(ifelse(is.na(.), "Unknown", .))) %>%
+  mutate_if(is.numeric, function(x) ifelse(is.na(x), mean(x, na.rm = TRUE), x)
+  ) %>%
+  rename("dependent" = Elevation) %>%
+  mutate(white_noise = rnorm(1:n(), mean = 0, sd = 1))
+
+
+# Set up the random forest model
+clc_rf_el <- ranger(dependent ~ ., data= clc_4rf_el, importance = 'permutation')
+
+# Print the model
+print(clc_rf_el)
+
+plot_fi <- function(data){
+  
+  model_recipe <- data %>% 
+    recipe(dependent ~ .) %>% 
+    step_integer(soil_type) %>% 
+    step_integer(soil_horizon) %>% 
+    step_corr(all_predictors()) %>% 
+    step_normalize(all_predictors(), -all_outcomes()) %>% 
+    recipes::prep()
+  
+  df <- model_recipe %>% 
+    bake(data)
+  
+  ## Make model
+  rf_model <- ranger(dependent ~ ., data = df, importance = "impurity")
+  
+  ## Visualize model output
+  print(rf_model)
+  
+  ## Set vectors for renaming stuff
+  var_names <- rf_model$variable.importance
+  col_names <- c("predictor", "raw_fi")
+  
+  ## Convert feature importance to a tibble with variables as a column
+  fi0 <- as.data.frame(var_names) %>% 
+    tibble::rownames_to_column() %>% 
+    as_tibble()
+  
+  ## Rename columns
+  colnames(fi0) = col_names
+  
+  ## Output variable importance (or feature importance)
+  fi0
+}
+
+clc_rf_el_norm <- plot_fi(clc_4rf_el) 
+
+```
+
+## Function to calculate variable importance for a default ranger() model
+[10:26 AM] Regier, Peter J
+I'd say if you're using it as an initial diagnostic, plot up the feature importance and use that. One other trick I'd suggest is add white noise as a predictor, then only include variables that are above white noise. That will probably help your MLR, because that correlation call removes variables that are super strongly correlated which is good for MLR and the white noise gives you a justifiable threshold
+ 
+  
+messing around some more...
+```{r more random forest testing, include = FALSE}
+
+# Get variable importance
+importance_el <- clc_rf_el_norm$variable.importance
+
+# Convert to data frame
+importance_df_el <- data.frame(Variable = names(importance_el), Importance = importance_el)
+
+# Order by importance
+importance_df_el <- importance_df_el[order(importance_df$Importance, decreasing = TRUE), ]
+
+# Plot
+VI_el <- importance_df_el %>%
+  ggplot() +
+  geom_bar(aes(x = reorder(Variable, Importance), y = Importance, fill = Variable), stat = "identity") +
+  coord_flip() +
+  labs(x = "Variable", y = "Importance", title = "Variable Importance") +
+  theme_bw()
+
+```
+
+```{r print rf}
+VI_el
+
+cowplot::save_plot("../graphs/variable_imp_RF_threshold_upland.jpeg", VI_el, dpi=300)
+
 ```
