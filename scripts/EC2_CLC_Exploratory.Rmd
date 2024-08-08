@@ -470,7 +470,7 @@ messing around some more...
 ```{r more random forest testing, include = FALSE}
 
 # Get variable importance
-importance_el <- clc_rf_el_norm$variable.importance
+importance_el <- clc_rf_el$variable.importance
 
 # Convert to data frame
 importance_df_el <- data.frame(Variable = names(importance_el), Importance = importance_el)
@@ -479,7 +479,9 @@ importance_df_el <- data.frame(Variable = names(importance_el), Importance = imp
 importance_df_el <- importance_df_el[order(importance_df$Importance, decreasing = TRUE), ]
 
 # Plot
-VI_el <- importance_df_el %>%
+VI_el <- clc_rf_el_norm %>%
+  rename(Variable = predictor,
+         Importance = raw_fi) %>%
   ggplot() +
   geom_bar(aes(x = reorder(Variable, Importance), y = Importance, fill = Variable), stat = "identity") +
   coord_flip() +
