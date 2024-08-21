@@ -45,23 +45,23 @@ Pennington S C ; Alford S ; Back M P ; Bailey V ; Baldwin A ; Bolinger J ; Bowe 
 
 ```{r data loading, warning=FALSE, echo=FALSE}
 #vertical Forest Retreat Rate
-vfrr_shp <- st_read("../data_do_not_commit/knb-lter-vcr.399.1/Vertical_forest_retreat_rate/Vertical_forest_retreat_rate.shp")
+vfrr_shp <- st_read("~/GitHub/EC2-Coastal-Land-Conversion/data_do_not_commit/knb-lter-vcr.399.1/Vertical_forest_retreat_rate/Vertical_forest_retreat_rate.shp")
 
 #EC1 Metadata
-ec1_meta <-read_csv("../data_do_not_commit/EC1 Package V1/ec1_metadata_v1/ec1_metadata_collectionlevel.csv")
+ec1_meta <-read_csv("~/GitHub/EC2-Coastal-Land-Conversion/data_do_not_commit/EC1 Package V1/ec1_metadata_v1/ec1_metadata_collectionlevel.csv")
 
-ec1_meta_kit <-read_csv("../data_do_not_commit/EC1 Package V1/ec1_metadata_v1/ec1_metadata_kitlevel.csv")
+ec1_meta_kit <-read_csv("~/GitHub/EC2-Coastal-Land-Conversion/data_do_not_commit/EC1 Package V1/ec1_metadata_v1/ec1_metadata_kitlevel.csv")
 
 #Soil Data
-ec1_bd <- read_csv("../data_do_not_commit/EC1 Package V1/ec1_soil_v1/ec1_soil_bulk_density_L2.csv")
-ec1_cond <- read_csv("../data_do_not_commit/EC1 Package V1/ec1_soil_v1/ec1_soil_cond_L2.csv")
-ec1_gwc <- read_csv("../data_do_not_commit/EC1 Package V1/ec1_soil_v1/ec1_soil_gwc_L2.csv")
-ec1_ph <- read_csv("../data_do_not_commit/EC1 Package V1/ec1_soil_v1/ec1_soil_ph_L2.csv")
-ec1_tc <- read_csv("../data_do_not_commit/EC1 Package V1/ec1_soil_v1/ec1_soil_tc_L2.csv")
-ec1_tn <- read_csv("../data_do_not_commit/EC1 Package V1/ec1_soil_v1/ec1_soil_tn_L2.csv")
+ec1_bd <- read_csv("~/GitHub/EC2-Coastal-Land-Conversion/data_do_not_commit/EC1 Package V1/ec1_soil_v1/ec1_soil_bulk_density_L2.csv")
+ec1_cond <- read_csv("~/GitHub/EC2-Coastal-Land-Conversion/data_do_not_commit/EC1 Package V1/ec1_soil_v1/ec1_soil_cond_L2.csv")
+ec1_gwc <- read_csv("~/GitHub/EC2-Coastal-Land-Conversion/data_do_not_commit/EC1 Package V1/ec1_soil_v1/ec1_soil_gwc_L2.csv")
+ec1_ph <- read_csv("~/GitHub/EC2-Coastal-Land-Conversion/data_do_not_commit/EC1 Package V1/ec1_soil_v1/ec1_soil_ph_L2.csv")
+ec1_tc <- read_csv("~/GitHub/EC2-Coastal-Land-Conversion/data_do_not_commit/EC1 Package V1/ec1_soil_v1/ec1_soil_tc_L2.csv")
+ec1_tn <- read_csv("~/GitHub/EC2-Coastal-Land-Conversion/data_do_not_commit/EC1 Package V1/ec1_soil_v1/ec1_soil_tn_L2.csv")
 
 #adjacent surface water data:
-ec1_water_sal <- read_csv("../data_do_not_commit/EC1 Package V1/ec1_water_v1/ec1_water_salinity_L2.csv") %>%
+ec1_water_sal <- read_csv("~/GitHub/EC2-Coastal-Land-Conversion/data_do_not_commit/EC1 Package V1/ec1_water_v1/ec1_water_salinity_L2.csv") %>%
   rename(surface_water_sal_psu = sal_psu) %>%
   dplyr::select(kit_id, surface_water_sal_psu)
 
@@ -186,7 +186,7 @@ gwc_corrplot <- clc_all_data  %>%
 
 gwc_corrplot
 
-cowplot::save_plot("../graphs/gwc_correlation_plot.jpeg", gwc_corrplot, dpi=300)
+cowplot::save_plot("~/GitHub/EC2-Coastal-Land-Conversion/graphs/gwc_correlation_plot.jpeg", gwc_corrplot, dpi=300)
 
 ```
 
@@ -264,7 +264,7 @@ map <- ggplot() +
         panel.grid.minor = element_blank()) +
    labs(color ="vertical \nretreat rate \n(mm/year)", x =" ", y=" ")
 
-cowplot::save_plot("../graphs/map_V2.jpeg", map, dpi=300)
+cowplot::save_plot("~/GitHub/EC2-Coastal-Land-Conversion/graphs/map_V2.jpeg", map, dpi=300)
 
 map
 
@@ -278,9 +278,9 @@ File #1 contains the watershed names and threshold elevations. File #3 contains 
 
 ```{r load in watersheds data, echo=FALSE}
 
-elevation_df <- read_csv("../data_do_not_commit/knb-lter-vcr.343.2/CB_landuse.csv", skip = 23)
+elevation_df <- read_csv("~/GitHub/EC2-Coastal-Land-Conversion/data_do_not_commit/knb-lter-vcr.343.2/CB_landuse.csv", skip = 23)
 
-HUC_shp <- st_read("../data_do_not_commit/knb-lter-vcr.343.2/CB_HUC10/CB_HUC10.shp")
+HUC_shp <- st_read("~/GitHub/EC2-Coastal-Land-Conversion/data_do_not_commit/knb-lter-vcr.343.2/CB_HUC10/CB_HUC10.shp")
 ```
 
 
@@ -384,7 +384,7 @@ gwc_corrplot <- clc_all_data_ws  %>%
 
 gwc_corrplot
 
-cowplot::save_plot("../graphs/gwc_correlation_plot_threshold_uplands.jpeg", gwc_corrplot, dpi=300)
+cowplot::save_plot("~/GitHub/EC2-Coastal-Land-Conversion/graphs/gwc_correlation_plot_threshold_uplands.jpeg", gwc_corrplot, dpi=300)
 ```
 
 
@@ -399,11 +399,11 @@ sal_corrplot <- clc_all_data_ws  %>%
 
 sal_corrplot
 
-cowplot::save_plot("../graphs/surface_sal_plot_threshold_upland.jpeg", sal_corrplot, dpi=300)
+cowplot::save_plot("~/GitHub/EC2-Coastal-Land-Conversion/graphs/surface_sal_plot_threshold_upland.jpeg", sal_corrplot, dpi=300)
 ```
 
 Hmm, wondering if I have enough data to try random forest? Probably not going to work, messing around with it anyway...
-```{r random forest trying out, include =FALSE}
+```{r random forest trying out too, include =FALSE}
 #Need to get rid of NA values first.
 #filling these with mean of the column, for now. 
 
@@ -467,7 +467,7 @@ I'd say if you're using it as an initial diagnostic, plot up the feature importa
  
   
 messing around some more...
-```{r more random forest testing, include = FALSE}
+```{r more random forest testing too, include = FALSE}
 
 # Get variable importance
 importance_el <- clc_rf_el$variable.importance
@@ -490,9 +490,9 @@ VI_el <- clc_rf_el_norm %>%
 
 ```
 
-```{r print rf}
+```{r print rf too}
 VI_el
 
-cowplot::save_plot("../graphs/variable_imp_RF_threshold_upland.jpeg", VI_el, dpi=300)
+cowplot::save_plot("~/GitHub/EC2-Coastal-Land-Conversion/graphs/variable_imp_RF_threshold_upland.jpeg", VI_el, dpi=300)
 
 ```
