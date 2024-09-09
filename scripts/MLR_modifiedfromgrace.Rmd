@@ -1,0 +1,179 @@
+---
+title: "Model Script From Grace Adapted to R"
+author: "AMP"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+R script modified from the article published in JGR Biogeosciences: Biophysical Drivers of Coastal Treeline Elevation
+
+ Code imports the csv containing the variables tested in the multiple linear regression. CSV file can be found in the repository associated with this article. Code then walks through several tests of multicollinearity and removal of highly correlated variables prior to running the model. Final model has three significant variables. In-depth interpretation of the model results can be found in the paper. 
+
+For any questions, please reach out to the corresponding author: Grace D. Molino (gdmolino@vims.edu)
+
+```{r Import necessary packages}
+library(readr)
+library(dplyr)
+library(ggplot2)
+library(car)
+library(tidyverse)
+```
+
+```{r Import csv file with HUC10 watershed-level variables. There are 14 variables total.}
+HUC14var <- read_csv("~/GitHub/EC2-Coastal-Land-Conversion/data_do_not_commit/knb-lter-vcr.387.1/VCR23383.csv", skip = 23) 
+
+colnames(HUC14var) <- c('FID', 'Watershed', 'Elevation', 'Tidal_Range', 'Surface_Salinity',  'Average_Slope', 
+                         'Isabel_maximum_inundation_depth', 'Isabel_Inundation_duration', 'Marsh_width', 'Watershed_area', 
+                         'TPI', 'Annual_temperature', 'Annual_precipitation', 'Annual_growing_season', 'WaterOccurrence', 
+                         'Change_WaterOccurrence', 'NDWI')
+head(HUC14var)
+```
+The model started with 14 variables which we assessed for multicollinearity using a pairwise correlation matrix and variance inflation factors (VIF) (calculated in Python)(Zuur et al., 2009). Highly correlated variables (Pearson's r greater >0.5) and those with a VIF above 5 were removed. The remaining variables were run in the model, followed with a backward stepwise selection whereby we eliminated insignificant variables until only significant variables remained. We calculated percent error for each watershed to validate the results of the model.
+
+```{r Test of multicollinearity using VIFs}
+
+HUC14var_const <- HUC14var %>%
+  select(-Watershed) #removing non-numeric variables
+
+# Examine correlation matrix to eliminate variables which are highly correlated (Pearson's r > 0.5) prior to running linear model.
+cor_matrix <- HUC14var_const %>%
+  select(-Elevation) %>%
+  cor()
+print(cor_matrix)
+corrplot::corrplot(cor_matrix)
+
+filtered_cor_matrix <- ifelse(abs(cor_matrix) < 0.5, cor_matrix, NA)
+
+high_cors <- ifelse(abs(cor_matrix) > 0.5, cor_matrix, NA)
+
+correlated_variables <- reshape2::melt(as.matrix(high_cors), varnames=c("Var1", "Var2"), value.name="Correlation") %>%
+  filter(!is.na(Correlation)) %>%
+  filter(Correlation < 1) #get rid of self correlations
+
+
+# The independent variables set
+X <- HUC14var_const %>%
+     select(Elevation, Tidal_Range, Surface_Salinity, Average_Slope, Isabel_maximum_inundation_depth, 
+            Isabel_Inundation_duration, Marsh_width, Watershed_area, TPI, Annual_temperature, 
+            Annual_precipitation, Annual_growing_season, WaterOccurrence, Change_WaterOccurrence, NDWI)
+
+# Calculating VIF for each feature
+vif_data = vif(lm(Elevation ~., data= X))
+
+vif_data
+
+# eliminate variables with a VIF > 5
+filter_vif <- function(data, response_var) {
+  while(TRUE) {
+    model <- lm(as.formula(paste(response_var, "~ .")), data = data)
+    vif_data <- vif(model)
+    high_vif_var <- which.max(vif_data)
+    if (vif_data[high_vif_var] < 5) break
+    data <- data[, !names(data) %in% names(vif_data)[high_vif_var]]
+    cat("Removing variable due to high VIF:", names(vif_data)[high_vif_var], "\n")
+  }
+  return(data)
+}
+
+# Filtering variables with VIF < 5
+HUC14var_vif_filtered <- filter_vif(HUC14var_const, "Elevation")
+
+
+```
+
+```{r stepwise regression}
+# Initial model with intercept only
+null_model <- lm(Elevation ~ 1, data= HUC14var_vif_filtered)
+
+# Full model with all predictors
+full_model <- lm(Elevation ~ ., data= HUC14var_vif_filtered)
+
+# Perform stepwise regression
+stepwise_model <- step(null_model, 
+                       scope=list(lower=null_model, upper=full_model), 
+                       direction="both", 
+                       trace=0)
+
+# Show summary of the selected model
+summary(stepwise_model)
+```
+
+```{r grace's models}
+# Linear model with remaining variables after removing those with high multicollinearity based on the correlation matrix and VIFs
+model1 <- lm(Elevation ~ Tidal_Range + Average_Slope + Surface_Salinity + Isabel_maximum_inundation_depth + 
+                  Watershed_area + TPI + Annual_precipitation + WaterOccurrence + Change_WaterOccurrence, 
+             data=HUC14var)
+
+summary(model1)
+
+# Linear model with final 3 significant variables after step-wise removal of insignificant variables
+model2 <- lm(Elevation ~ Tidal_Range + Surface_Salinity + Average_Slope, data=HUC14var)
+
+summary(model2)
+```
+
+
+```{r autostepwise}
+
+auto_stepwise_regression <- function(data, response_variable, vif_threshold, corr_threshold, direction) {
+  # Helper function to calculate VIF and remove high VIF columns
+  remove_high_vif <- function(model, data, vif_threshold) {
+    vif_vals <- vif(model)
+    while (any(vif_vals > vif_threshold)) {
+      highest_vif_var <- names(vif_vals)[which.max(vif_vals)]
+      data <- data[ , !(names(data) %in% highest_vif_var)]
+      model <- lm(as.formula(paste(response_variable, "~ .")), data = data)
+      vif_vals <- vif(model)
+    }
+    return(list(model = model, data = data))
+  }
+  
+  # Helper function to remove highly co-correlated variables
+  remove_high_corr <- function(data, corr_threshold) {
+    corr_matrix <- cor(data)
+    drop_vars <- findCorrelation(corr_matrix, cutoff = corr_threshold, exact = TRUE)
+    data <- data[ , -drop_vars, drop = FALSE]
+    return(data)
+  }
+  
+  library(caret) # Needed for findCorrelation function
+
+  # Prepare the initial dataset excluding the response variable
+  initial_data <- data[, !colnames(data) %in% response_variable]
+  
+  # Step 1: Remove high co-correlation variables
+  cleaned_data <- remove_high_corr(initial_data, corr_threshold)
+  
+  # Step 2: Add the response variable back
+  cleaned_data[[response_variable]] <- data[[response_variable]]
+  
+  # Step 3: Prepare the full model using the cleaned data
+  formula <- as.formula(paste(response_variable, "~ ."))
+  full_model <- lm(formula, data = cleaned_data)
+  
+  # Step 4: Remove high VIF variables
+  result <- remove_high_vif(full_model, cleaned_data, vif_threshold)
+  cleaned_data <- result$data
+  
+  # Step 5: Define null and updated full model for stepwise regression
+  null_model <- lm(as.formula(paste(response_variable, "~ 1")), data = cleaned_data)
+  full_model <- lm(as.formula(paste(response_variable, "~ .")), data = cleaned_data)
+  
+  # Step 6: Perform stepwise regression
+  stepwise_model <- step(null_model, 
+                         scope = list(lower = null_model, upper = full_model), 
+                         direction = direction, 
+                         trace = 0)
+  
+  # Step 7: Return the final stepwise model
+  return(stepwise_model)
+}
+
+
+final_model <- auto_stepwise_regression(HUC14var_const, "Elevation", vif_threshold = 5, corr_threshold = 0.5, direction = "forward")
+
+# Show summary of the final model
+summary(final_model)
+
+```
+I dont know why I am not getting the final variables Grace did in my final model (not getting Tidal Range). could be the way down selection is happening from the correlation matrix? 
