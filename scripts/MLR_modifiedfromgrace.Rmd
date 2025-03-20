@@ -5,11 +5,12 @@ date: "`r Sys.Date()`"
 output: html_document
 ---
 
-R script modified from the article published in JGR Biogeosciences: Biophysical Drivers of Coastal Treeline Elevation
+R script modified from the article published in JGR Biogeosciences: Biophysical Drivers of Coastal Treeline Elevation. Code imports the csv containing the variables tested in the multiple linear regression. CSV file can be found in the repository associated with this article. Code then walks through several tests of multicollinearity and removal of highly correlated variables prior to running the model.
 
- Code imports the csv containing the variables tested in the multiple linear regression. CSV file can be found in the repository associated with this article. Code then walks through several tests of multicollinearity and removal of highly correlated variables prior to running the model. Final model has three significant variables. In-depth interpretation of the model results can be found in the paper. 
-
-For any questions, please reach out to the corresponding author: Grace D. Molino (gdmolino@vims.edu)
+Final 3 variables selected in the paper are :
+Tidal Range (Coefficient 0.2264)
+Surface Salinity (Coefficient 0.0083)
+Average Slope (Coefficient 0.1304)
 
 ```{r Import necessary packages}
 library(readr)
@@ -38,7 +39,7 @@ HUC14var_const <- HUC14var %>%
 # Examine correlation matrix to eliminate variables which are highly correlated (Pearson's r > 0.5) prior to running linear model.
 cor_matrix <- HUC14var_const %>%
   select(-Elevation) %>%
-  cor()
+  cor(method= c("pearson"))
 print(cor_matrix)
 corrplot::corrplot(cor_matrix)
 
@@ -46,9 +47,15 @@ filtered_cor_matrix <- ifelse(abs(cor_matrix) < 0.5, cor_matrix, NA)
 
 high_cors <- ifelse(abs(cor_matrix) > 0.5, cor_matrix, NA)
 
-correlated_variables <- reshape2::melt(as.matrix(high_cors), varnames=c("Var1", "Var2"), value.name="Correlation") %>%
+# Set the upper triangle including the diagonal to NA
+high_cors[upper.tri(high_cors, diag = TRUE)] <- NA
+
+correlated_variables <- reshape2::melt(as.matrix(high_cors), varnames = c("Var1", "Var2"), value.name = "Correlation") %>%
   filter(!is.na(Correlation)) %>%
-  filter(Correlation < 1) #get rid of self correlations
+  filter(Correlation < 1)  # Get rid of self-correlations
+
+#OR this looks and filters more automatically 
+findCorrelation(cor_matrix, cutoff = 0.5, exact = FALSE, names = TRUE)
 
 
 # The independent variables set
@@ -78,6 +85,13 @@ filter_vif <- function(data, response_var) {
 # Filtering variables with VIF < 5
 HUC14var_vif_filtered <- filter_vif(HUC14var_const, "Elevation")
 
+#of these remaining variables, which of these are also co-correlated? 
+
+variables_to_remove <- colnames(HUC14var_vif_filtered) %in% unique(correlated_variables$Var1)
+
+HUC14var_vif_cor_filtered <- HUC14var_vif_filtered[, !variables_to_remove]
+
+colnames(HUC14var_vif_cor_filtered)
 
 ```
 
@@ -111,6 +125,11 @@ model2 <- lm(Elevation ~ Tidal_Range + Surface_Salinity + Average_Slope, data=HU
 
 summary(model2)
 ```
+Note that this model lm(formula = Elevation ~ Tidal_Range + Surface_Salinity + Average_Slope, 
+    data = HUC14var) matches grace's output but was picked a priori 
+    
+
+We shoudl be able to reproduce the results with auto regression: 
 
 
 ```{r autostepwise}
@@ -130,8 +149,8 @@ auto_stepwise_regression <- function(data, response_variable, vif_threshold, cor
   
   # Helper function to remove highly co-correlated variables
   remove_high_corr <- function(data, corr_threshold) {
-    corr_matrix <- cor(data)
-    drop_vars <- findCorrelation(corr_matrix, cutoff = corr_threshold, exact = TRUE)
+    corr_matrix <- cor(data, method = "pearson")
+    drop_vars <- findCorrelation(corr_matrix, cutoff = corr_threshold, exact = FALSE)
     data <- data[ , -drop_vars, drop = FALSE]
     return(data)
   }
@@ -163,17 +182,18 @@ auto_stepwise_regression <- function(data, response_variable, vif_threshold, cor
   stepwise_model <- step(null_model, 
                          scope = list(lower = null_model, upper = full_model), 
                          direction = direction, 
-                         trace = 0)
+                         trace = 1)
   
   # Step 7: Return the final stepwise model
   return(stepwise_model)
 }
 
 
-final_model <- auto_stepwise_regression(HUC14var_const, "Elevation", vif_threshold = 5, corr_threshold = 0.5, direction = "forward")
+final_model <- auto_stepwise_regression(HUC14var_const, "Elevation", vif_threshold = 5, corr_threshold = 0.5, direction = "both")
 
 # Show summary of the final model
 summary(final_model)
 
 ```
-I dont know why I am not getting the final variables Grace did in my final model (not getting Tidal Range). could be the way down selection is happening from the correlation matrix? 
+
+If we do a manual picking of variables, we can get down to final variables that Grace manually picked from examining the correlation matrix and the VIFs. however, when automated, we end up with slightly different variables picked. 

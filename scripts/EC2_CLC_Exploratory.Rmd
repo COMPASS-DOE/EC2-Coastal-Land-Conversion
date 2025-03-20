@@ -66,6 +66,7 @@ ec1_water_sal <- read_csv("~/GitHub/EC2-Coastal-Land-Conversion/data_do_not_comm
   dplyr::select(kit_id, surface_water_sal_psu)
 
 ```
+
 ```{r cleaning data, warnings=FALSE, echo=FALSE}
 ec1_meta_curated <- ec1_meta %>%
   full_join(ec1_meta_kit, by="kit_id") %>%
