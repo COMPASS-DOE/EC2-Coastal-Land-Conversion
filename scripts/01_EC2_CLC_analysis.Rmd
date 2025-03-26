@@ -7,6 +7,8 @@ output: html_document
 
 Coastal Land Conversion Project
 
+Rationale: to look at more localized drivers of VRR based on Molino et al., 2023 hypothesis that these are dependent on local drivers. https://agupubs.onlinelibrary.wiley.com/doi/full/10.1029/2023JG007525
+
 Datasets:
 
 1) vertical retreat rate
@@ -234,7 +236,7 @@ Need to confirm with Matt/Grace if we can substitute others in or not.
 
 ```{r autostepwise}
 
-auto_stepwise_regression <- function(data, response_variable, vif_threshold, corr_threshold, direction) {
+auto_stepwise_regression <- function(data, response_variable, vif_threshold, corr_threshold, direction = "both", significance_level = 0.05) {
   # Helper function to calculate VIF and remove high VIF columns
   remove_high_vif <- function(model, data, vif_threshold) {
     vif_vals <- vif(model)
@@ -286,17 +288,22 @@ auto_stepwise_regression <- function(data, response_variable, vif_threshold, cor
   summary(full_model)
   
   # Step 5: Remove high VIF variables
- # result <- remove_high_vif(full_model, cleaned_data, vif_threshold)
-#  cleaned_data <- result$data
+  result <- remove_high_vif(full_model, cleaned_data, vif_threshold)
+  cleaned_data <- result$data
   
   # Step 6: Define null and updated full model for stepwise regression
   null_model <- lm(as.formula(paste(response_variable, "~ 1")), data = cleaned_data)
   full_model <- lm(as.formula(paste(response_variable, "~ .")), data = cleaned_data)
   
-  # Step 7: Perform stepwise regression
-  stepwise_model <- step(null_model, 
+  # Step 7: Perform stepwise regression based on p-values
+  stepwise_model <- step(full_model, 
                          scope = list(lower = null_model, upper = full_model), 
                          direction = direction, 
+                         test = "F", 
+                         keep = function(model, data) {
+                           significant_vars <- summary(model)$coefficients[, "Pr(>|t|)"] < significance_level
+                           return(significant_vars)
+                         },
                          trace = 2)
   
   # Step 8: Return the final stepwise model
@@ -315,10 +322,25 @@ clc_for_vrr_model <- clc_all_data %>%
 
 clc_for_vrr_model 
 
-VRR_model <- auto_stepwise_regression(clc_for_vrr_model, "V_RetreatR", vif_threshold = 5, corr_threshold = 0.5, direction = "both")
+VRR_model <- auto_stepwise_regression(clc_for_vrr_model, "V_RetreatR", vif_threshold = 10, corr_threshold = 0.5, direction = "both")
 
 # Show summary of the final model
 summary(VRR_model)
+
+#Variable importance of the fit model: 
+VRR_importance <- varImp(VRR_model, scale = TRUE)
+
+# Convert to data frame for ggplot2
+VRR_importance_df <- as.data.frame(VRR_importance)
+VRR_importance_df$Variable <- rownames(VRR_importance_df)
+
+# Create a plot
+ggplot(VRR_importance_df, aes(x = reorder(Variable, Overall), y = Overall)) +
+    geom_bar(stat = "identity") +
+    coord_flip() + 
+    xlab("Variables") + 
+    ylab("Importance (scaled)") 
+
 ```
 
 #### Run MLR for Threshold Elevation 
@@ -335,4 +357,38 @@ TE_model <- auto_stepwise_regression(clc_for_te_model , "Elevation", vif_thresho
 
 # Show summary of the final model
 summary(TE_model)
+
 ```
+
+```{r plotting} 
+#Variable importance of the fit model: 
+TE_importance <- varImp(TE_model, scale = TRUE)
+
+# Convert to data frame for ggplot2
+TE_importance_df <- as.data.frame(TE_importance)
+TE_importance_df$Variable <- rownames(TE_importance_df)
+
+#clean up names for plotting:
+TE_importance_df <- TE_importance_df %>%
+mutate(Variable = case_when(Variable == "percent_clay" ~ "% clay",
+                            Variable == "th_s" ~ "saturated water content",
+                            Variable == "alpha" ~ "porosity parameter (alpha)",
+                            Variable == "Tidal_Range" ~ "tidal range in HUC 10 watershed",
+                            Variable == "ph" ~ "soil ph",
+                            Variable == "albite" ~ "albite content",
+                            Variable == "microcline" ~ "microcline content", 
+                            TRUE ~ Variable))
+
+# Create a plot
+ggplot(TE_importance_df, aes(x = reorder(Variable, Overall), y = Overall, fill = Variable)) +
+    geom_bar(stat = "identity") +
+    coord_flip() + 
+     scale_fill_manual(values=PNWColors::pnw_palette(name ="Lake", 7, type = "discrete"))+
+    xlab("Significant Variables") + 
+    ylab("Scaled Importance") +
+    theme_classic() +
+    theme(legend.position = "none")
+    
+```
+
+α is a scale parameter that is inversely proportional to the mean pore diameter; n is a shape parameter that controls the slope of the soil-water characteristic curve; θr is the residual water content, and θs is the saturated water content.
