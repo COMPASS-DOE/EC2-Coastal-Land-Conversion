@@ -345,7 +345,7 @@ ggplot(VRR_importance_df, aes(x = reorder(Variable, Overall), y = Overall)) +
 
 #### Run MLR for Threshold Elevation 
 
-```{r vrr mlr}
+```{r te mlr}
 #clean up dataframe to numerical variables of interest: 
 clc_for_te_model <- clc_all_data_ws_sigcors %>%
   dplyr::select(Elevation, bulk_density_g_cm3:albite, microcline, quartz:th_s, surface_water_sal_psu:Average_Slope) %>%   
