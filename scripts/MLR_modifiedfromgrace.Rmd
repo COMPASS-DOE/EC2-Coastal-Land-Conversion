@@ -34,11 +34,11 @@ The model started with 14 variables which we assessed for multicollinearity usin
 ```{r Test of multicollinearity using VIFs}
 
 HUC14var_const <- HUC14var %>%
-  select(-Watershed) #removing non-numeric variables
+  dplyr::select(-Watershed) #removing non-numeric variables
 
 # Examine correlation matrix to eliminate variables which are highly correlated (Pearson's r > 0.5) prior to running linear model.
 cor_matrix <- HUC14var_const %>%
-  select(-Elevation) %>%
+  dplyr::select(-Elevation) %>%
   cor(method= c("pearson"))
 print(cor_matrix)
 corrplot::corrplot(cor_matrix)
@@ -60,7 +60,7 @@ findCorrelation(cor_matrix, cutoff = 0.5, exact = FALSE, names = TRUE)
 
 # The independent variables set
 X <- HUC14var_const %>%
-     select(Elevation, Tidal_Range, Surface_Salinity, Average_Slope, Isabel_maximum_inundation_depth, 
+    dplyr::select(Elevation, Tidal_Range, Surface_Salinity, Average_Slope, Isabel_maximum_inundation_depth, 
             Isabel_Inundation_duration, Marsh_width, Watershed_area, TPI, Annual_temperature, 
             Annual_precipitation, Annual_growing_season, WaterOccurrence, Change_WaterOccurrence, NDWI)
 
