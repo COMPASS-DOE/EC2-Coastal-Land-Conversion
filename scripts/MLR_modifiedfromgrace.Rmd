@@ -128,8 +128,16 @@ summary(model2)
 Note that this model lm(formula = Elevation ~ Tidal_Range + Surface_Salinity + Average_Slope, 
     data = HUC14var) matches grace's output but was picked a priori 
     
+also, note that the pvalues and coefficents dont match
+https://agupubs.onlinelibrary.wiley.com/doi/full/10.1029/2023JG007525
 
-We shoudl be able to reproduce the results with auto regression: 
+Variable	p-value	Coefficient	Resolution	Source
+Tidal range	0.001	0.2264	400 m	NOAA%20%20VDatum
+Surface salinity	0.000	0.0083	600 m	St-Laurent et al. (2020)
+Average slope	0.003	0.1304	30 m	Molino et al. (2020)
+    
+
+We should be able to reproduce the results with auto regression: 
 
 
 ```{r autostepwise}

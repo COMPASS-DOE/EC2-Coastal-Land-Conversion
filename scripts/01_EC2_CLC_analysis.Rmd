@@ -7,6 +7,8 @@ output: html_document
 
 Coastal Land Conversion Project
 
+Portions of the analytical workflow development and code refinement were assisted by an AI-based large language model (ChatGPT, OpenAI). The tool was used to support statistical model comparison strategies, cross-validation implementation, and reproducible R code structuring. All data processing, model execution, interpretation of results, and scientific conclusions were performed and verified by the authors. The authors take full responsibility for the integrity, accuracy, and interpretation of the analyses presented.
+
 Rationale: to look at more localized drivers of VRR based on Molino et al., 2023 hypothesis that these are dependent on local drivers. https://agupubs.onlinelibrary.wiley.com/doi/full/10.1029/2023JG007525
 
 Datasets:
@@ -34,7 +36,7 @@ Analysis to be completed in this script:
 
 1) Multiple linear regression of vertical retreat rate vs. EC1 soil parameters 
 
-2) Multiple linear regression of threshold elevations vs. EC1 soil parameters (+identified watershed parameters from Molino et al)
+2) Multiple linear regression of threshold elevations vs. EC1 soil parameters (+ identified watershed parameters from Molino et al)
 
 ```{r Import necessary packages}
 library(readr)
@@ -166,6 +168,7 @@ extracted_vfrr_df <- as.data.frame(extracted_vfrr_no_geometry) %>%
 
 ```
 
+### dataframe with all EC1 data, Molino data for Vertical Retreat Rate:
 ```{r data merging, echo=FALSE}
 
 clc_all_data <- extracted_vfrr_df %>%
@@ -204,6 +207,7 @@ points_in_watershed <- st_join(coordinates_ws_sf_transformed, HUC_shp, join = st
 
 ```
 
+### dataframe with all EC1 data for Threshold Elevation:
 ```{r data merging elevation, echo=FALSE}
 
 points_in_watershed_no_geometry <- st_set_geometry(points_in_watershed, NULL)
@@ -216,6 +220,8 @@ clc_all_data_ws
 
 ```
 
+### dataframe with all EC1 data for Threshold Elevation including signficant watershed variables from Molino et al:
+
 ```{r merging in huc level data w elevation, echo=FALSE}
 
 HUC14var_sig <- HUC14var %>%
@@ -226,6 +232,22 @@ clc_all_data_ws_sigcors <- clc_all_data_ws %>%
   left_join(HUC14var_sig, by = "name")
 
 clc_all_data_ws_sigcors 
+
+macro_vars <- c("Elevation", "Tidal_Range", "Surface_Salinity", "Average_Slope")
+micro_vars <- c("th_s", "alpha", "moisturecontent_perc_drywtbasis",
+                "specific_conductance_us_cm", "bulk_density_g_cm3",
+                "percent_clay", "surface_water_sal_psu")
+
+# Missingness + usable n for each variable with Elevation
+coverage <- tibble(var = c(macro_vars, micro_vars)) %>%
+  mutate(
+    n_total = nrow(clc_all_data_ws_sigcors ),
+    n_nonmiss = sapply(var, \(v) sum(!is.na(clc_all_data_ws_sigcors[[v]]))),
+    n_with_Elev = sapply(var, \(v) sum(!is.na(clc_all_data_ws_sigcors$Elevation) & !is.na(clc_all_data_ws_sigcors[[v]])))
+  ) %>%
+  arrange(desc(n_with_Elev))
+
+coverage
 ```
 missing HUC14 data for: 
 - Upper Patuxent River
@@ -233,3 +255,158 @@ missing HUC14 data for:
 
 Need to confirm with Matt/Grace if we can substitute others in or not.
 
+# Refit original model with just macro variables on just the 17 sites that overlap with EXCHANGE data. 
+
+From Molino et al https://agupubs.onlinelibrary.wiley.com/doi/full/10.1029/2023JG007525
+Variable	p-value	Coefficient	Resolution	Source
+Tidal range	0.001	0.2264	400 m	NOAA%20%20VDatum
+Surface salinity	0.000	0.0083	600 m	St-Laurent et al. (2020)
+Average slope	0.003	0.1304	30 m	Molino et al. (2020)
+```{r subset}
+d17 <- clc_all_data_ws_sigcors %>% 
+  group_by(name) %>%
+  dplyr::select(Elevation,
+         Surface_Salinity,
+         Tidal_Range,
+         Average_Slope,
+         surface_water_sal_psu,
+         moisturecontent_perc_drywtbasis,
+         bulk_density_g_cm3,
+         specific_conductance_us_cm) %>%
+  drop_na() %>%
+  ungroup() %>%
+  dplyr::select(-name)
+
+d17
+```
+```{r macro variables on subset}
+cor(d17[, c("Elevation","Tidal_Range","Surface_Salinity","Average_Slope")])
+
+```
+Macro variables are highly co-correlated in the subset data, so pick the one with the highest correlation to elevation. This is actually slope, not salinity 
+
+```{r correlation matrix local variables}
+corr_matrix <- cor(d17, method = "pearson") # Uses pairs only when we have complete observations 
+    
+# Print the correlation matrix using corrplot
+library(corrplot) # Needed for the correlation plot
+corrplot(corr_matrix, method = "color", type = "lower", tl.col = "black", tl.srt = 45, title = sprintf("Correlation Matrix (Threshold: %s)", corr_threshold = 0.5))
+
+corr_df <- data.frame(corr_matrix["Elevation", -1]) %>%
+  rename(Correlation_w_Elevation = 'corr_matrix..Elevation....1.') %>%
+  rownames_to_column(var = "Variable")
+
+ggplot(corr_df,
+       aes(x = reorder(Variable, Correlation_w_Elevation),
+           y = Correlation_w_Elevation,
+           fill= Variable)) +
+  geom_col(alpha=0.7) +
+  coord_flip() +
+  theme_classic() +
+  ylab("Pearson correlation with Threshold Elevation") +
+  xlab(" ") +
+  scale_fill_manual(values = soilpalettes::soil_palette("redox2", 9)) +
+  theme(legend.position = "none")
+
+corr_df
+    
+```
+```{r n16}
+m_macro_ws <- lm(Elevation ~ Average_Slope, data = d17)
+summary(m_macro_ws)
+
+loocv_rmse(Elevation ~ Average_Slope, d17)
+
+m_micro_ws <- lm(Elevation ~ surface_water_sal_psu +
+                               moisturecontent_perc_drywtbasis,
+                 data = d17)
+
+summary(m_micro_ws)
+
+m_combo_ws <- lm(Elevation ~ Average_Slope +
+                               surface_water_sal_psu +
+                               moisturecontent_perc_drywtbasis,
+                 data = d17)
+
+summary(m_combo_ws)
+
+loocv_rmse(Elevation ~ surface_water_sal_psu +
+                           moisturecontent_perc_drywtbasis, d17)
+
+loocv_rmse(Elevation ~ Average_Slope +
+                           surface_water_sal_psu +
+                           moisturecontent_perc_drywtbasis, d17)
+
+```
+
+Try on the subset with the soil hydraulic info
+
+```{r n13}
+d13 <- clc_all_data_ws_sigcors %>%
+  dplyr::select(Elevation,
+         Average_Slope,
+         th_s,
+         alpha) %>%
+  drop_na()
+
+m_macro13 <- lm(Elevation ~ Average_Slope, data = d13)
+m_micro13 <- lm(Elevation ~ th_s + alpha, data = d13)
+m_combo13 <- lm(Elevation ~ Average_Slope + th_s + alpha, data = d13)
+
+summary(m_macro13)
+summary(m_micro13)
+summary(m_combo13)
+
+loocv_rmse(Elevation ~ Average_Slope, d13)
+loocv_rmse(Elevation ~ th_s + alpha, d13)
+loocv_rmse(Elevation ~ Average_Slope + th_s + alpha, d13)
+
+```
+tl;dr is that the local site characteristics aggregated at the watershed scale/using watershed scale threshold elevations doesn't add in significant explanatory power over the watershed scale variables. so, lets find and aggregate some watershed scale soil properties!
+
+# Part 2: Database data 
+
+```{r set up to extract data}
+library(sf)
+library(soilDB)
+library(terra)
+
+HUC_shp_ea <- st_transform(HUC_shp, 5070)
+
+# 1) Request mukey grid again (start a bit coarser if needed)
+mukey_r <- mukey.wcs(aoi = HUC_shp_ea, db = "gSSURGO", res = 150)
+
+# 2) Convert -> write to disk -> read back (forces values to exist)
+tmp <- tempfile(fileext = ".tif")
+writeRaster(rast(mukey_r), tmp, overwrite = TRUE)
+
+mukey_rast <- rast(tmp)
+
+# 3) Confirm it now has values
+hasValues(mukey_rast)
+global(mukey_rast, "notNA", na.rm = TRUE)
+```
+
+
+bulk density (dbthirdbar_r)
+clay (claytotal_r)
+sand (sandtotal_r)
+available water capacity (awc_r)
+
+```{r pull data}
+vars <- c("dbthirdbar_r", "claytotal_r", "sandtotal_r", "awc_r")
+
+# Example: fetch property table for mukeys you have in your grid
+# (you’ll need to extract unique mukeys from the mukey raster first)
+mukeys <- sort(unique(values(mukey_rast)))
+mukeys <- mukeys[!is.na(mukeys)]
+
+prop <- get_SDA_property(
+  mukeys = mukeys,
+  property = vars,
+  top_depth = 0,
+  bottom_depth = 30,
+  method = "Dominant Component",
+  agg.method = "Depth Weighted Average"
+)
+```
