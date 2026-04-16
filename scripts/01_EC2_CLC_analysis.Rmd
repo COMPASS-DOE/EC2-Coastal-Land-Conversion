@@ -292,23 +292,38 @@ corr_matrix <- cor(d17, method = "pearson") # Uses pairs only when we have compl
 library(corrplot) # Needed for the correlation plot
 corrplot(corr_matrix, method = "color", type = "lower", tl.col = "black", tl.srt = 45, title = sprintf("Correlation Matrix (Threshold: %s)", corr_threshold = 0.5))
 
+labels <- c(
+ # Surface_Salinity = "Watershed Average Salinity (PSU)",
+  #Tidal_Range = "Tidal Range",
+ # Average_Slope = "Average Slope",
+  surface_water_sal_psu = "Adjacent Surface Water Salinity (PSU)",
+  moisturecontent_perc_drywtbasis = "Soil Moisture Content (% dry wt basis)",
+  bulk_density_g_cm3 = "Soil Bulk Density (g/cm³)",
+  specific_conductance_us_cm = "Soil Specific Conductance (µS/cm)"
+)
+
 corr_df <- data.frame(corr_matrix["Elevation", -1]) %>%
   rename(Correlation_w_Elevation = 'corr_matrix..Elevation....1.') %>%
-  rownames_to_column(var = "Variable")
+  rownames_to_column(var = "Variable") %>%
+  filter(Variable != c("Surface_Salinity", "Tidal_Range", "Average_Slope"))
 
-ggplot(corr_df,
+plot_corr <- ggplot(corr_df,
        aes(x = reorder(Variable, Correlation_w_Elevation),
            y = Correlation_w_Elevation,
            fill= Variable)) +
   geom_col(alpha=0.7) +
   coord_flip() +
   theme_classic() +
-  ylab("Pearson correlation with Threshold Elevation") +
-  xlab(" ") +
+  ylab("Pearson Correlation with Threshold Elevation") +
+  xlab("EC1 Measured Variable") +
+  scale_x_discrete(labels = labels)+
   scale_fill_manual(values = soilpalettes::soil_palette("redox2", 9)) +
   theme(legend.position = "none")
 
 corr_df
+
+plot_corr
+ggsave("corr_matrix_forproposal.png", plot = plot_corr)
     
 ```
 ```{r n16}
