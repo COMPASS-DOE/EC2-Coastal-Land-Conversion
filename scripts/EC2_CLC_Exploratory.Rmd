@@ -258,17 +258,240 @@ map <- ggplot() +
   geom_sf(data= vfrr_shp_corrected, aes(color=V_RetreatR), size=3) +
    scale_color_gradientn(colors=pal)+
   geom_point(data= coordinates_df, aes(x = lon, y = lat), color="black", fill=NA, size=1, shape=1 ) +
- #   geom_sf(data= coordinates_sf_transformed, aes(geometry= geometry), color="black", fill=NA,size=1,shape=1 )+
+  #  geom_sf(data= coordinates_sf_transformed, aes(geometry= geometry), color="black", fill=NA,size=1,shape=1 )+
   coord_sf(xlim = c(bbox["xmin"], bbox["xmax"]), ylim = c(bbox["ymin"], bbox["ymax"]), crs= 32618)+
   theme_bw() + 
   theme(panel.grid.major = element_blank(), 
         panel.grid.minor = element_blank()) +
    labs(color ="vertical \nretreat rate \n(mm/year)", x =" ", y=" ")
 
-cowplot::save_plot("~/GitHub/EC2-Coastal-Land-Conversion/graphs/map_V2.jpeg", map, dpi=300)
+#cowplot::save_plot("~/GitHub/EC2-Coastal-Land-Conversion/graphs/map_V2.jpeg", map, dpi=300)
 
 map
 
+```
+
+```{r map for poster}
+# =========================
+# DATA PREP
+# =========================
+
+library(sf)
+library(terra)
+library(dplyr)
+library(ggplot2)
+library(rnaturalearth)
+library(rnaturalearthdata)
+
+pal <- wesanderson::wes_palette(
+  "Zissou1",
+  100,
+  type = "continuous"
+)
+
+# Retreat-rate data
+vfrr_shp_corrected <- vfrr_shp %>%
+  st_transform(32618) %>%
+  filter(
+    V_RetreatR > 0,
+    V_RetreatR < 5
+  )
+
+# Representative points for interpolation
+vfrr_points <- vfrr_shp_corrected %>%
+  st_point_on_surface()
+
+vfrr_vect <- terra::vect(vfrr_points)
+
+# Bounding box
+bbox <- st_bbox(vfrr_shp_corrected)
+
+# Raster template
+r_template <- terra::rast(
+  terra::ext(vfrr_vect),
+  resolution = 500,
+  crs = terra::crs(vfrr_vect)
+)
+
+# IDW interpolation
+r_interp <- terra::interpIDW(
+  r_template,
+  vfrr_vect,
+  field = "V_RetreatR",
+  power = 2,
+  radius = 5000
+)
+
+names(r_interp) <- "V_RetreatR"
+
+# Smooth surface
+w <- terra::focalMat(
+  r_interp,
+  d = 2500,
+  type = "Gauss"
+)
+
+r_smooth <- terra::focal(
+  r_interp,
+  w = w,
+  fun = mean,
+  na.rm = TRUE
+)
+
+# Restrict to near-coast / observed areas
+shore_buffer <- vfrr_shp_corrected %>%
+  st_buffer(3000) %>%
+  terra::vect()
+
+r_smooth_masked <- terra::mask(
+  r_smooth,
+  shore_buffer
+)
+
+smooth_df <- as.data.frame(
+  r_smooth_masked,
+  xy = TRUE,
+  na.rm = TRUE
+)
+
+names(smooth_df)[3] <- "V_RetreatR"
+
+# Higher-resolution coastline
+coast <- ne_countries(
+  scale = "large",
+  country = "United States of America",
+  returnclass = "sf"
+) %>%
+  st_transform(32618)
+
+# Sampling points
+coordinates_df <- st_coordinates(
+  st_transform(coordinates_sf_transformed, 32618)
+) %>%
+  as.data.frame() %>%
+  rename(
+    lon = X,
+    lat = Y
+  )
+
+# Convert coastline/land polygon to terra
+coast_vect <- terra::vect(coast)
+
+# Clip smoothed retreat raster to land only
+r_smooth_land <- terra::mask(
+  r_smooth_masked,
+  coast_vect
+)
+
+# Convert clipped raster to dataframe
+smooth_df <- as.data.frame(
+  r_smooth_land,
+  xy = TRUE,
+  na.rm = TRUE
+)
+
+names(smooth_df)[3] <- "V_RetreatR"
+
+```
+
+```{r plot for poster}
+# =========================
+# PLOT
+# =========================
+
+map <- ggplot() +
+
+  # Land
+  geom_sf(
+    data = coast,
+    fill = "#E8E1D1",
+    color = "black",
+    linewidth = 0.35
+  ) +
+
+  # Smoothed coastal forest retreat rate
+  geom_raster(
+    data = smooth_df,
+    aes(
+      x = x,
+      y = y,
+      fill = V_RetreatR
+    )
+  ) +
+
+  scale_fill_gradientn(
+    colors = pal,
+    limits = c(0, 5),
+    name = "Coastal Forest\nRetreat Rate\n(mm/year)"
+  ) +
+
+  # Redraw coastline over raster
+  geom_sf(
+    data = coast,
+    fill = NA,
+    color = "black",
+    linewidth = 0.35
+  ) +
+
+  # EC1 sampling locations - open triangles
+  geom_point(
+    data = coordinates_df,
+    aes(
+      x = lon,
+      y = lat,
+      shape = "EC1 Sites"
+    ),
+    size = 3,
+    stroke = 1.1,
+    color = "black"
+  ) +
+
+  scale_shape_manual(
+    name = NULL,
+    values = c("EC1 Sites" = 2)
+  ) +
+
+  # Map extent
+  coord_sf(
+    xlim = c(bbox["xmin"], bbox["xmax"]),
+    ylim = c(bbox["ymin"], bbox["ymax"]),
+    crs = 32618,
+    expand = FALSE
+  ) +
+
+  labs(
+    x = NULL,
+    y = NULL
+  ) +
+
+  theme_void(base_size = 18) +
+
+  theme(
+    # Water
+    panel.background = element_rect(
+      fill = "#DCEEF2",
+      color = NA
+    ),
+
+    # Poster-friendly legends
+    legend.title = element_text(size = 14),
+    legend.text = element_text(size = 14),
+    legend.key = element_rect(
+      fill = NA,
+      color = NA
+    ),
+
+    # Map border
+    panel.border = element_rect(
+      color = "black",
+      fill = NA,
+      linewidth = 1
+    )
+  )
+
+map
+
+cowplot::save_plot("~/GitHub/EC2-Coastal-Land-Conversion/graphs/map_forrenewal.jpeg", map, dpi=300)
 ```
 
 ## Threshold Elevations

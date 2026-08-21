@@ -296,10 +296,10 @@ labels <- c(
  # Surface_Salinity = "Watershed Average Salinity (PSU)",
   #Tidal_Range = "Tidal Range",
  # Average_Slope = "Average Slope",
-  surface_water_sal_psu = "Adjacent Surface Water Salinity (PSU)",
-  moisturecontent_perc_drywtbasis = "Soil Moisture Content (% dry wt basis)",
-  bulk_density_g_cm3 = "Soil Bulk Density (g/cm³)",
-  specific_conductance_us_cm = "Soil Specific Conductance (µS/cm)"
+  surface_water_sal_psu = "Surface Water Salinity \n (PSU)",
+  moisturecontent_perc_drywtbasis = "Soil Moisture Content \n (% w/w)",
+  bulk_density_g_cm3 = "Soil Bulk Density \n (g/cm³)",
+  specific_conductance_us_cm = "Soil Specific Conductance \n (µS/cm)"
 )
 
 corr_df <- data.frame(corr_matrix["Elevation", -1]) %>%
@@ -323,6 +323,65 @@ plot_corr <- ggplot(corr_df,
 corr_df
 
 plot_corr
+
+plot_corr <- ggplot(
+  corr_df,
+  aes(
+    x = reorder(Variable, Correlation_w_Elevation),
+    y = Correlation_w_Elevation,
+    fill = Variable
+  )
+) +
+  geom_col(alpha = 0.8) +
+
+  geom_text(
+    aes(
+      y = ifelse(Correlation_w_Elevation > 0, -0.015, 0.015),
+      label = labels[match(Variable, names(labels))],
+      hjust = ifelse(Correlation_w_Elevation > 0, 1, 0)
+    ),
+    color = "black",
+    size = 4.5,
+    fontface = "bold",
+    lineheight = 0.9
+  ) +
+
+  coord_flip() +
+
+  scale_y_continuous(
+    limits = c(-0.45, 0.85),
+    breaks = c(-0.3, 0, 0.3, 0.6)
+  ) +
+
+  scale_x_discrete(labels = NULL) +
+
+  scale_fill_manual(
+    values = soilpalettes::soil_palette("redox2", 9)
+  ) +
+
+  labs(
+    x = NULL,
+    y = "Correlation with Threshold Elevation (r)"
+  ) +
+
+  theme_classic(base_size = 18) +
+
+  theme(
+    legend.position = "none",
+    axis.text.y = element_blank(),
+    axis.ticks.y = element_blank(),
+    axis.title.x = element_text(size = 20),
+    axis.text.x = element_text(size = 16),
+    panel.border = element_rect(
+      color = "black",
+      fill = NA,
+      linewidth = 1
+    )
+  )
+
+
+plot_corr
+
 ggsave("corr_matrix_forproposal.png", plot = plot_corr)
     
 ```
