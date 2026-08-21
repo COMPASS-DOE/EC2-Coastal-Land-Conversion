@@ -326,6 +326,7 @@ plot_corr
 ggsave("corr_matrix_forproposal.png", plot = plot_corr)
     
 ```
+
 ```{r n16}
 m_macro_ws <- lm(Elevation ~ Average_Slope, data = d17)
 summary(m_macro_ws)
