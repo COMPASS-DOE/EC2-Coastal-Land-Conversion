@@ -75,29 +75,29 @@ For WRT:
 
 ```{r import ec1 data}
 #4. EC 1 Metadata
-ec1_meta <-read_csv("~/GitHub/EC2-Coastal-Land-Conversion/data_do_not_commit/EC1 Package V3/ec1_metadata_v3/ec1_metadata_collectionlevel.csv")
+ec1_meta <-read_csv("~/GitHub/EC2-Coastal-Land-Conversion/data_do_not_commit/EC1 Package V3/data/ec1_metadata_v3/ec1_metadata_collectionlevel.csv")
 
-ec1_meta_kit <-read_csv("~/GitHub/EC2-Coastal-Land-Conversion/data_do_not_commit/EC1 Package V3/ec1_metadata_v3/ec1_metadata_kitlevel.csv")
+ec1_meta_kit <-read_csv("~/GitHub/EC2-Coastal-Land-Conversion/data_do_not_commit/EC1 Package V3/data/ec1_metadata_v3/ec1_metadata_kitlevel.csv")
 
 #EC 1 Soil Data
-ec1_bd <- read_csv("~/GitHub/EC2-Coastal-Land-Conversion/data_do_not_commit/EC1 Package V3/ec1_soil_v3/ec1_soil_bulk_density_L2.csv") %>%
+ec1_bd <- read_csv("~/GitHub/EC2-Coastal-Land-Conversion/data_do_not_commit/EC1 Package V3/data/ec1_soil_v3/ec1_soil_bulk_density_L2.csv") %>%
   dplyr::select(-igsn)
-ec1_cond <- read_csv("~/GitHub/EC2-Coastal-Land-Conversion/data_do_not_commit/EC1 Package V3/ec1_soil_v3/ec1_soil_cond_L2.csv") %>%
+ec1_cond <- read_csv("~/GitHub/EC2-Coastal-Land-Conversion/data_do_not_commit/EC1 Package V3/data/ec1_soil_v3/ec1_soil_cond_L2.csv") %>%
     dplyr::select(-igsn)
-ec1_gwc <- read_csv("~/GitHub/EC2-Coastal-Land-Conversion/data_do_not_commit/EC1 Package V3/ec1_soil_v3/ec1_soil_gwc_L2.csv") %>%
+ec1_gwc <- read_csv("~/GitHub/EC2-Coastal-Land-Conversion/data_do_not_commit/EC1 Package V3/data/ec1_soil_v3/ec1_soil_gwc_L2.csv") %>%
     dplyr::select(-igsn)
-ec1_ph <- read_csv("~/GitHub/EC2-Coastal-Land-Conversion/data_do_not_commit/EC1 Package V3/ec1_soil_v3/ec1_soil_ph_L2.csv") %>%
+ec1_ph <- read_csv("~/GitHub/EC2-Coastal-Land-Conversion/data_do_not_commit/EC1 Package V3/data/ec1_soil_v3/ec1_soil_ph_L2.csv") %>%
     dplyr::select(-igsn)
-ec1_mineralogy <- read_csv("~/GitHub/EC2-Coastal-Land-Conversion/data_do_not_commit/EC1 Package V3/ec1_soil_v3/ec1_soil_mineralogy_L2.csv") %>%
+ec1_mineralogy <- read_csv("~/GitHub/EC2-Coastal-Land-Conversion/data_do_not_commit/EC1 Package V3/data/ec1_soil_v3/ec1_soil_mineralogy_L2.csv") %>%
     dplyr::select(-igsn)
-ec1_texture <- read_csv("~/GitHub/EC2-Coastal-Land-Conversion/data_do_not_commit/EC1 Package V3/ec1_soil_v3/ec1_soil_texture_L2.csv") %>%
+ec1_texture <- read_csv("~/GitHub/EC2-Coastal-Land-Conversion/data_do_not_commit/EC1 Package V3/data/ec1_soil_v3/ec1_soil_texture_L2.csv") %>%
    dplyr::select(-igsn)
-ec1_wrc<- read_csv("~/GitHub/EC2-Coastal-Land-Conversion/data_do_not_commit/EC1 Package V3/ec1_soil_v3/ec1_soil_wrc_L2.csv") %>%
+ec1_wrc<- read_csv("~/GitHub/EC2-Coastal-Land-Conversion/data_do_not_commit/EC1 Package V3/data/ec1_soil_v3/ec1_soil_wrc_L2.csv") %>%
   dplyr::select(-igsn, -th_r, -n)
 
 
 #EC 1 adjacent surface water data:
-ec1_water_sal <- read_csv("~/GitHub/EC2-Coastal-Land-Conversion/data_do_not_commit/EC1 Package V3/ec1_water_v3/ec1_water_salinity_L2.csv") %>%
+ec1_water_sal <- read_csv("~/GitHub/EC2-Coastal-Land-Conversion/data_do_not_commit/EC1 Package V3/data/ec1_water_v3/ec1_water_salinity_L2.csv") %>%
   rename(surface_water_sal_psu = sal_psu) %>%
   dplyr::select(kit_id, surface_water_sal_psu)
 
@@ -317,7 +317,7 @@ plot_corr <- ggplot(corr_df,
   ylab("Pearson Correlation with Threshold Elevation") +
   xlab("EC1 Measured Variable") +
   scale_x_discrete(labels = labels)+
-  scale_fill_manual(values = soilpalettes::soil_palette("redox2", 9)) +
+ # scale_fill_manual(values = soilpalettes::soil_palette("redox2", 9)) +
   theme(legend.position = "none")
 
 corr_df
@@ -355,9 +355,9 @@ plot_corr <- ggplot(
 
   scale_x_discrete(labels = NULL) +
 
-  scale_fill_manual(
-    values = soilpalettes::soil_palette("redox2", 9)
-  ) +
+ # scale_fill_manual(
+  #  values = soilpalettes::soil_palette("redox2", 9)
+#  ) +
 
   labs(
     x = NULL,
@@ -382,8 +382,15 @@ plot_corr <- ggplot(
 
 plot_corr
 
-ggsave("corr_matrix_forproposal.png", plot = plot_corr)
+#ggsave("corr_matrix_forproposal.png", plot = plot_corr)
     
+```
+```{r eqn}
+loocv_rmse <- function(formula, data) {
+  fit <- lm(formula, data = data, na.action = na.omit)
+  loo_errors <- residuals(fit) / (1 - hatvalues(fit))
+  sqrt(mean(loo_errors^2))
+}
 ```
 
 ```{r n16}
@@ -437,11 +444,155 @@ loocv_rmse(Elevation ~ th_s + alpha, d13)
 loocv_rmse(Elevation ~ Average_Slope + th_s + alpha, d13)
 
 ```
-tl;dr is that the local site characteristics aggregated at the watershed scale/using watershed scale threshold elevations doesn't add in significant explanatory power over the watershed scale variables. so, lets find and aggregate some watershed scale soil properties!
+tl;dr is that the local site characteristics aggregated at the watershed scale/using watershed scale threshold elevations doesn't add in significant explanatory power over the watershed scale variables. Let's summarize this for KPs perspectives paper. s
+## summarize
 
+```{r summary}
+# ============================================================
+# Summary table: macro vs local vs combined predictive models
+# ============================================================
+
+library(dplyr)
+library(tibble)
+
+# Helper function to summarize lm models + LOOCV RMSE
+summarize_model <- function(model, model_name, predictors, data, formula) {
+  
+  sm <- summary(model)
+  
+  tibble(
+    Model = model_name,
+    n = nobs(model),
+    Predictors = predictors,
+    R2 = sm$r.squared,
+    Adj_R2 = sm$adj.r.squared,
+    LOOCV_RMSE = loocv_rmse(formula, data)
+  )
+}
+
+# ---- Models using the larger complete-case subset ----
+
+model_summary_d17 <- bind_rows(
+  
+  summarize_model(
+    m_macro_ws,
+    model_name = "Watershed-scale",
+    predictors = "Average slope",
+    data = d17,
+    formula = Elevation ~ Average_Slope
+  ),
+  
+  summarize_model(
+    m_micro_ws,
+    model_name = "Local",
+    predictors = "Surface-water salinity + soil moisture",
+    data = d17,
+    formula = Elevation ~ surface_water_sal_psu +
+      moisturecontent_perc_drywtbasis
+  ),
+  
+  summarize_model(
+    m_combo_ws,
+    model_name = "Combined",
+    predictors = "Average slope + surface-water salinity + soil moisture",
+    data = d17,
+    formula = Elevation ~ Average_Slope +
+      surface_water_sal_psu +
+      moisturecontent_perc_drywtbasis
+  )
+)
+
+model_summary_d17
+```
+
+```{r hydrology only summary}
+# ---- Models using subset with soil hydraulic properties ----
+
+model_summary_d13 <- bind_rows(
+  
+  summarize_model(
+    m_macro13,
+    model_name = "Watershed-scale",
+    predictors = "Average slope",
+    data = d13,
+    formula = Elevation ~ Average_Slope
+  ),
+  
+  summarize_model(
+    m_micro13,
+    model_name = "Local hydraulic",
+    predictors = "Saturated water content (theta_s) + alpha",
+    data = d13,
+    formula = Elevation ~ th_s + alpha
+  ),
+  
+  summarize_model(
+    m_combo13,
+    model_name = "Combined",
+    predictors = "Average slope + theta_s + alpha",
+    data = d13,
+    formula = Elevation ~ Average_Slope + th_s + alpha
+  )
+)
+
+model_summary_d13
+```
+
+```{r table}
+model_comparison_table <- bind_rows(
+  model_summary_d17 %>% mutate(Data_subset = "Local soil/water variables"),
+  model_summary_d13 %>% mutate(Data_subset = "Soil hydraulic variables")
+) %>%
+  dplyr::select(
+    Data_subset,
+    Model,
+    n,
+    Predictors,
+    R2,
+    Adj_R2,
+    LOOCV_RMSE
+  ) %>%
+  mutate(
+    across(c(R2, Adj_R2, LOOCV_RMSE), ~ round(.x, 3))
+  )
+
+model_comparison_table
+
+knitr::kable(
+  model_comparison_table,
+  caption = "Comparison of watershed-scale, local, and combined models of marsh–forest threshold elevation.",
+  align = c("l", "l", "c", "l", "c", "c", "c")
+)
+```
+
+```{r variable coverage}
+# ============================================================
+# Variable coverage table
+# ============================================================
+
+coverage_table <- coverage %>%
+  mutate(
+    Percent_with_Elevation =
+      round(100 * n_with_Elev / n_total, 1)
+  ) %>%
+  dplyr::select(
+    Variable = var,
+    Total_sites = n_total,
+    Nonmissing = n_nonmiss,
+    Usable_with_threshold_elevation = n_with_Elev,
+    Percent_with_Elevation
+  )
+
+knitr::kable(
+  coverage_table,
+  caption = "Availability of regional and local predictor variables at sites with threshold-elevation data."
+)
+```
+
+Now, lets find and aggregate some watershed scale soil properties!
 # Part 2: Database data 
 
-```{r set up to extract data}
+```{r set up to extract data, eval=FALSE}
 library(sf)
 library(soilDB)
 library(terra)
@@ -468,7 +619,7 @@ clay (claytotal_r)
 sand (sandtotal_r)
 available water capacity (awc_r)
 
-```{r pull data}
+```{r pull data, eval = FALSE}
 vars <- c("dbthirdbar_r", "claytotal_r", "sandtotal_r", "awc_r")
 
 # Example: fetch property table for mukeys you have in your grid
